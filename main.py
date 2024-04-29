@@ -14,19 +14,13 @@ from model.history import history
 app = FastAPI()
 
 origins = [
-    "http://localhost:",
-    "http://localhost:5173",  # Assuming your Vue.js server runs on port 8080
+    "http://localhost:5173/",
+    "https://entborrowingsystem.netlify.app/",  # Assuming your Vue.js server runs on port 8080
 ]
 
 # Include CRUD routes from modules
 
 
-app.include_router(administrator,  prefix="/adminpanel")
-app.include_router(students,  prefix="/api")
-app.include_router(teachers,  prefix="/api")
-app.include_router(equipments,  prefix="/api")
-app.include_router(personnels,  prefix="/api")
-app.include_router(history,  prefix="/history")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -34,6 +28,15 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["*"],
 )
+
+app.include_router(administrator,  prefix="/adminpanel")
+app.include_router(students,  prefix="/api")
+app.include_router(teachers,  prefix="/api")
+app.include_router(equipments,  prefix="/api")
+app.include_router(personnels,  prefix="/api")
+app.include_router(history,  prefix="/history")
+
+
 
 
 
