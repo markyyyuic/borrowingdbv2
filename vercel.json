@@ -1,19 +1,14 @@
 {
-    "functions": {
-      "main": {
-        "runtime": "python3.9"
-      }
-    },
     "builds": [
-      {
-        "src": "main.py",
-        "use": "@vercel/python"
-      }
+        {
+            "src": "main.py",
+            "use": "@vercel/python"
+        }
     ],
     "routes": [
-      {
-        "src": "/(.*)*",
-        "dest": "main.py"
-      }
+        {
+            "src": "/(.*)*",
+            "dest": "main.py"
+        }
     ]
-  }
+}
