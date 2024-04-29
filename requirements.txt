@@ -4,7 +4,6 @@
 annotated-types==0.6.0
 anyio==4.3.0
 bcrypt==4.1.2
-ca-certificates==2023.12.12
 click==8.1.7
 colorama==0.4.6
 exceptiongroup==1.2.0
