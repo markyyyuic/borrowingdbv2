@@ -11,7 +11,6 @@ fastapi==0.110.0
 h11==0.14.0
 idna==3.6
 mysql-connector-python==8.3.0
-openssl==3.0.13
 pillow==10.2.0
 pip==23.3.1
 pydantic==2.6.2
