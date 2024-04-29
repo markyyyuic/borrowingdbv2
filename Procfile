@@ -1,0 +1,1 @@
+web: gunicorn -w 4 -k uvicron.wokers.UvicornWorker main:app --reload
