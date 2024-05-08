@@ -9,18 +9,9 @@ async def approve_request_by_id(
     db=Depends(get_db)
 ):
     try:
-        # Update status of the approved request to "approved" in the request table
-        query_update_status = """
-            UPDATE request
-            SET status = 'approved'
-            WHERE request_id = %s
-        """
-        db[0].execute(query_update_status, (request_id,))
-        db[1].commit()  # Commit the transaction after updating the status
-
         # Retrieve approved request data from the request table
         query_select_request = """
-            SELECT name, date, year_section, item_name, item_id
+            SELECT name, date, year_section, item_name, item_id, quantity
             FROM request
             WHERE request_id = %s
         """
@@ -29,6 +20,24 @@ async def approve_request_by_id(
 
         if not approved_request_data:
             raise HTTPException(status_code=404, detail="Request not found")
+
+        # Deduct the approved quantity from the available quantity of the item in the equipments table
+        query_update_quantity = """
+            UPDATE equipments
+            SET quantity = quantity - %s
+            WHERE item_id = %s
+        """
+        db[0].execute(query_update_quantity, (approved_request_data[5], approved_request_data[4]))
+        db[1].commit()  # Commit the transaction after updating the quantity
+
+        # Update status of the approved request to "approved" in the request table
+        query_update_status = """
+            UPDATE request
+            SET status = 'approved'
+            WHERE request_id = %s
+        """
+        db[0].execute(query_update_status, (request_id,))
+        db[1].commit()  # Commit the transaction after updating the status
 
         # Insert the approved request data into the reports table
         query_insert_report = """
@@ -60,6 +69,7 @@ async def approve_request_by_id(
     finally:
         # Close the database cursor and connection
         db[0].close()
+
 
 @history.post("/history/decline_requests/{request_id}", response_model=dict)
 async def decline_request_by_id(
