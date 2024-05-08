@@ -26,9 +26,9 @@ origins = [
 
 app.include_router(administrator,  prefix="/adminpanel")
 app.include_router(students,  prefix="/api")
+app.include_router(personnels,  prefix="/api")
 app.include_router(teachers,  prefix="/api")
 app.include_router(equipments,  prefix="/api")
-app.include_router(personnels,  prefix="/api")
 app.include_router(history,  prefix="/history")
 app.include_router(requests,  prefix="/request")
 app.add_middleware(
