@@ -11,6 +11,7 @@ administrator = APIRouter(tags=["Administrator Panel"])
 
 # CRUD operations
 
+# Endpoint to handle administrator login
 @administrator.post("/administrator/login/", response_model=dict)
 async def login_administrator(
     username: str = Form(...), 
@@ -18,20 +19,23 @@ async def login_administrator(
     db=Depends(get_db)
 ):
     # Query the database to check if the username exists
-    query_check_user = "SELECT password FROM administrator WHERE username = %s"
+    query_check_user = "SELECT admin_id, password FROM administrator WHERE username = %s"
     db[0].execute(query_check_user, (username,))
     user = db[0].fetchone()
 
     if user:
-        # Retrieve the stored password from the database
-        stored_password = user[0]
+        # Retrieve the stored password and admin_id from the database
+        stored_password = user[1]
+        admin_id = user[0]
 
+        # Check if the password is correct
         if password == stored_password:
-            # If username and password are correct, print login successful
-             return {"message": "Login successful"}
+            # If username and password are correct, return login successful along with admin_id
+            return {"message": "Login successful", "admin_id": admin_id}
     
     # If username or password is incorrect, raise an HTTPException
     raise HTTPException(status_code=401, detail="Incorrect username or password")
+
 
 
 
@@ -145,6 +149,7 @@ def hash_password(password: str):
 
 # FOR ADD, EDIT, DELETE equipments methods
 
+# Endpoint to create a new equipment item by administrator
 @administrator.post("/admin/equipment/create", response_model=dict)
 async def create_equipment_by_admin(
     item_name: str = Form(...), 
@@ -152,21 +157,24 @@ async def create_equipment_by_admin(
     status: str = Form(...), 
     db=Depends(get_db)
 ) -> Dict:
+    # Check if all required fields are provided
     if not all((item_name, quantity, status)):
         raise HTTPException(status_code=400, detail="All fields are required")
     
-    admin_id = fetch_admin_id_from_database()
+    # Fetch the admin ID directly from the database
+    admin_id = fetch_admin_id_from_database()  
     if admin_id is None:
         raise HTTPException(status_code=500, detail="Failed to fetch admin ID")
 
-    query = "INSERT INTO equipments (item_name, quantity, status, admin_id) VALUES (%s, %s, %s, %s)"
-    db[0].execute(query, (item_name, quantity, status, admin_id))
+    # Insert the new equipment item into the database
+    query = "INSERT INTO equipments (item_name, quantity, status, admin_id, last_editor_id) VALUES (%s, %s, %s, %s, %s)"
+    db[0].execute(query, (item_name, quantity, status, admin_id, admin_id))
     db[1].commit()
     
     return {"message": "Equipment added successfully by administrator"}
 
 
-# Endpoint to update an existing equipment entry by administrator
+# Endpoint to update an existing equipment item by administrator
 @administrator.put("/admin/equipment/edit/{item_id}", response_model=dict)
 async def update_equipment_by_admin(
     item_id: int,
@@ -187,12 +195,31 @@ async def update_equipment_by_admin(
     if not existing_item:
         raise HTTPException(status_code=404, detail="Equipment item not found")
 
-    # Update the existing equipment entry in the database
-    query_update_item = "UPDATE equipments SET item_name = %s, quantity = %s, status = %s WHERE item_id = %s"
-    db[0].execute(query_update_item, (item_name, quantity, status, item_id))
+    # Update the existing equipment item in the database
+    query_update_item = "UPDATE equipments SET item_name = %s, quantity = %s, status = %s, last_editor_id = %s WHERE item_id = %s"
+    db[0].execute(query_update_item, (item_name, quantity, status, admin_id, item_id))
     db[1].commit()
     
     return {"message": "Equipment updated successfully by administrator"}
+
+
+# Endpoint to delete an existing equipment item by administrator
+@administrator.delete("/admin/equipment/delete/{item_id}", response_model=dict)
+async def delete_equipment_by_admin(
+    item_id: int,
+    db=Depends(get_db)
+):
+    # Fetch the admin ID directly from the database
+    admin_id = fetch_admin_id_from_database()  
+    if admin_id is None:
+        raise HTTPException(status_code=500, detail="Failed to fetch admin ID")
+
+    # Delete the existing equipment item from the database
+    query_delete_item = "DELETE FROM equipments WHERE item_id = %s"
+    db[0].execute(query_delete_item, (item_id,))
+    db[1].commit()
+    
+    return {"message": "Equipment deleted successfully by administrator"}
 
 
 

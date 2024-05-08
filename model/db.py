@@ -5,7 +5,7 @@ db_config = {
     "host": "localhost",
     "user": "root",
     "password": "",
-    "database": "etborrowingdb",
+    "database": "entdb",
     "port": 3306,
 }
 

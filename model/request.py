@@ -43,3 +43,16 @@ async def get_equipment_requests(
     equipment_requests = [{"request_id": row[0], "date": row[1], "student_id": row[2], "teacher_id": row[3], "personnel_id": row[4], "item_name": row[5]} for row in db[0].fetchall()]
     return equipment_requests
 
+
+@requests.get("/requests", response_model=list)
+async def get_requests(
+    db=Depends(get_db)
+):
+    query = "SELECT request_id, name, date, item_name, status FROM request"
+    db[0].execute(query)
+    requests = [
+        {"request_id": row[0], "name": row[1], "date": row[2], "item_name": row[3], "status": row[4]}
+        for row in db[0].fetchall()
+    ]
+    return requests
+

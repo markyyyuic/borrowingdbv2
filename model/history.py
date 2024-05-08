@@ -1,57 +1,125 @@
 from fastapi import Depends, HTTPException, APIRouter
 from .db import get_db
-import datetime
 
 history = APIRouter(tags=["History"])
 
-@history.post("/approve_requests", response_model=dict)
-async def approve_requests(
-    approved_requests: list[int],  # List of request IDs to be approved
+@history.post("/history/approve_requests/{request_id}", response_model=dict)
+async def approve_request_by_id(
+    request_id: int,
     db=Depends(get_db)
 ):
     try:
-        if not approved_requests:
-            raise HTTPException(status_code=400, detail="No requests to approve")
+        # Update status of the approved request to "approved" in the request table
+        query_update_status = """
+            UPDATE request
+            SET status = 'approved'
+            WHERE request_id = %s
+        """
+        db[0].execute(query_update_status, (request_id,))
+        db[1].commit()  # Commit the transaction after updating the status
 
-        # Retrieve approved requests data from the request table
-        query_select_requests = """
-            SELECT request_id AS history_id, name, date, item_name, item_id
+        # Retrieve approved request data from the request table
+        query_select_request = """
+            SELECT name, date, year_section, item_name, item_id
             FROM request
-            WHERE request_id IN (%s)
+            WHERE request_id = %s
         """
-        query_params = ",".join(["%s"] * len(approved_requests))
-        query_select_requests = query_select_requests % query_params
-        db[0].execute(query_select_requests, tuple(approved_requests))
-        approved_requests_data = db[0].fetchall()
+        db[0].execute(query_select_request, (request_id,))
+        approved_request_data = db[0].fetchone()
 
-        if not approved_requests_data:
-            raise HTTPException(status_code=404, detail="No requests found")
+        if not approved_request_data:
+            raise HTTPException(status_code=404, detail="Request not found")
 
-        # Insert approved requests into the history table
+        # Insert the approved request data into the reports table
+        query_insert_report = """
+            INSERT INTO reports (request_id, status, name, year_section, item_name)
+            VALUES (%s, 'approved', %s, %s, %s)
+        """
+        db[0].execute(query_insert_report, (request_id, approved_request_data[0], approved_request_data[2], approved_request_data[3]))
+        db[1].commit()  # Commit the transaction after inserting into reports table
+
+        # Insert the approved request data into the history table
         query_insert_history = """
-            INSERT INTO history (history_id, name, date, item_name, item_id)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO history (name, date, item_name, item_id)
+            VALUES (%s, %s, %s, %s)
         """
-        db[0].executemany(query_insert_history, approved_requests_data)
+        db[0].execute(query_insert_history, (approved_request_data[0], approved_request_data[1], approved_request_data[3], approved_request_data[4]))
+        db[1].commit()  # Commit the transaction after inserting into history table
 
-        # Delete approved requests from the request table
-        query_delete_requests = """
+        # Delete the approved request from the request table
+        query_delete_request = """
             DELETE FROM request
-            WHERE request_id IN (%s)
+            WHERE request_id = %s
         """
-        query_delete_requests = query_delete_requests % query_params
-        db[0].execute(query_delete_requests, tuple(approved_requests))
+        db[0].execute(query_delete_request, (request_id,))
+        db[1].commit()  # Commit the transaction after deleting the request
 
-        db[1].commit()
-
-        return {"message": "Approved requests moved to history successfully"}
+        return {"message": "Request approved and moved to history successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     finally:
-        # Close the database cursor
+        # Close the database cursor and connection
         db[0].close()
-        
-        
+
+@history.post("/history/decline_requests/{request_id}", response_model=dict)
+async def decline_request_by_id(
+    request_id: int,
+    db=Depends(get_db)
+):
+    try:
+        # Update status of the declined request to "declined" in the request table
+        query_decline_request = """
+            UPDATE request
+            SET status = 'declined'
+            WHERE request_id = %s
+        """
+        db[0].execute(query_decline_request, (request_id,))
+        db[1].commit()  # Commit the transaction after updating the status
+
+        # Retrieve declined request data from the request table
+        query_select_request = """
+            SELECT name, date, year_section, item_name, item_id
+            FROM request
+            WHERE request_id = %s
+        """
+        db[0].execute(query_select_request, (request_id,))
+        declined_request_data = db[0].fetchone()
+
+        if not declined_request_data:
+            raise HTTPException(status_code=404, detail="Request not found")
+
+        # Insert the declined request data into the reports table
+        query_insert_report = """
+            INSERT INTO reports (request_id, status, name, year_section, item_name)
+            VALUES (%s, 'declined', %s, %s, %s)
+        """
+        db[0].execute(query_insert_report, (request_id, declined_request_data[0], declined_request_data[2], declined_request_data[3]))
+        db[1].commit()  # Commit the transaction after inserting into reports table
+
+        # Insert the declined request data into the history table
+        query_insert_history = """
+            INSERT INTO history (name, date, item_name, item_id)
+            VALUES (%s, %s, %s, %s)
+        """
+        db[0].execute(query_insert_history, (declined_request_data[0], declined_request_data[1], declined_request_data[3], declined_request_data[4]))
+        db[1].commit()  # Commit the transaction after inserting into history table
+
+        # Delete the declined request from the request table
+        query_delete_request = """
+            DELETE FROM request
+            WHERE request_id = %s
+        """
+        db[0].execute(query_delete_request, (request_id,))
+        db[1].commit()  # Commit the transaction after deleting the request
+
+        return {"message": "Request declined and moved to history successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+    finally:
+        # Close the database cursor and connection
+        db[0].close()
+
+
 @history.get("/history_data", response_model=list)
 async def get_history_data(db=Depends(get_db)):
     try:

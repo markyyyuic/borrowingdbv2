@@ -93,6 +93,7 @@ async def delete_personnel(
 async def request_equipment(
     personnel_id: int, 
     item_id: int,
+    status: str,  # Add status parameter to the endpoint
     db=Depends(get_db)
 ):
     try:
@@ -106,20 +107,32 @@ async def request_equipment(
 
         personnel_name = personnel_info[1]  # Get the personnel name
 
-        # Get the item name based on the item_id
-        query_fetch_item_name = "SELECT item_name FROM equipments WHERE item_id = %s"
-        db[0].execute(query_fetch_item_name, (item_id,))
-        item_name = db[0].fetchone()
+        # Get the item name, quantity, and status based on the item_id
+        query_fetch_item_info = "SELECT item_name, quantity, status FROM equipments WHERE item_id = %s"
+        db[0].execute(query_fetch_item_info, (item_id,))
+        item_info = db[0].fetchone()
 
-        if not item_name:
+        if not item_info:
             raise HTTPException(status_code=404, detail="Item not found")
 
-        item_name = item_name[0]  # Get the item name
+        item_name, item_quantity, item_status = item_info  # Get the item name, quantity, and status
+
+        if item_status != "available":
+            raise HTTPException(status_code=400, detail="Item is not available for borrowing")
+
+        if item_quantity <= 0:
+            raise HTTPException(status_code=400, detail="Item out of stock")
 
         # Insert the request into the request table
         timestamp = datetime.datetime.now()
         query_insert_request = "INSERT INTO request (personnel_id, name, date, item_id, item_name) VALUES (%s, %s, %s, %s, %s)"
         db[0].execute(query_insert_request, (personnel_id, personnel_name, timestamp, item_id, item_name))
+
+        # Update the quantity in the equipment table
+        new_quantity = item_quantity - 1  # Deduct one item
+        query_update_quantity = "UPDATE equipments SET quantity = %s WHERE item_id = %s"
+        db[0].execute(query_update_quantity, (new_quantity, item_id))
+
         db[1].commit()
 
         # Get personnel requests including item and personnel names

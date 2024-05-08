@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException, APIRouter, Form
 from .db import get_db
 import datetime
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 equipments = APIRouter(tags=["For Equipments"])
@@ -85,15 +86,7 @@ async def edit_equipment(
     db=Depends(get_db)
 ):
     try:
-        # Check if the equipment exists
-        query_check_equipment = "SELECT item_id FROM equipments WHERE item_id = %s"
-        db[0].execute(query_check_equipment, (equipment_id,))
-        existing_equipment = db[0].fetchone()
-
-        if not existing_equipment:
-            raise HTTPException(status_code=404, detail="Equipment not found")
-
-        # Update the equipment
+        # Update the equipment based on the received item name
         query_update_equipment = "UPDATE equipments SET item_name = %s, quantity = %s, status = %s WHERE item_id = %s"
         db[0].execute(query_update_equipment, (item_name, quantity, status, equipment_id))
         db[1].commit()
@@ -102,6 +95,7 @@ async def edit_equipment(
     except Exception as e:
         logger.exception("Error occurred while updating equipment:")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 @equipments.delete("/equipment/delete/{equipment_id}", response_model=dict)
 async def delete_equipment(
@@ -134,25 +128,12 @@ async def request_equipment(
     user_id: int, 
     item_id: int,
     user_type: str,
+    user_name: str,
+    quantity: int,  # Added quantity parameter
+    year_section: Optional[str] = None,
     db=Depends(get_db)
 ):
     try:
-        # Check if the user exists based on the user_type
-        if user_type == "student":
-            query_check_user = "SELECT student_id FROM student WHERE student_id = %s"
-        elif user_type == "teacher":
-            query_check_user = "SELECT Teacher_ID FROM teacher WHERE Teacher_ID = %s"
-        elif user_type == "personnel":
-            query_check_user = "SELECT personnel_id FROM personnel WHERE personnel_id = %s"
-        else:
-            raise HTTPException(status_code=400, detail="Invalid user type")
-
-        db[0].execute(query_check_user, (user_id,))
-        existing_user = db[0].fetchone()
-
-        if not existing_user:
-            raise HTTPException(status_code=404, detail=f"{user_type.capitalize()} not found")
-
         # Fetch the item_name based on the item_id
         query_fetch_item_name = "SELECT item_name FROM equipments WHERE item_id = %s"
         db[0].execute(query_fetch_item_name, (item_id,))
@@ -163,15 +144,23 @@ async def request_equipment(
 
         # Insert the request into the request table
         timestamp = datetime.datetime.now()
-        if user_type == "student":
-            query_insert_request = "INSERT INTO request (student_id, date, item_id, item_name) VALUES (%s, %s, %s, %s)"
-        elif user_type == "teacher":
-            query_insert_request = "INSERT INTO request (teacher_id, date, item_id, item_name) VALUES (%s, %s, %s, %s)"
-        elif user_type == "personnel":
-            query_insert_request = "INSERT INTO request (personnel_id, date, item_id, item_name) VALUES (%s, %s, %s, %s)"
-        
-        db[0].execute(query_insert_request, (user_id, timestamp, item_id, item_name[0]))
+        query_insert_request = f"INSERT INTO request (user_id, name, date, item_id, year_section, item_name, user_type, quantity) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)"  # Updated query
+        db[0].execute(query_insert_request, (user_id, user_name, timestamp, item_id, year_section, item_name[0], user_type, quantity))  # Passed quantity parameter
         db[1].commit()
+
+        # Insert user-specific data into the respective tables
+        if user_type == "student":
+            query_insert_student = "INSERT INTO student (student_id, student_name, year_section) VALUES (%s, %s, %s)"
+            db[0].execute(query_insert_student, (user_id, user_name, year_section))
+            db[1].commit()
+        elif user_type == "teacher":
+            query_insert_teacher = "INSERT INTO teacher (teacher_id, teacher_name) VALUES (%s, %s)"
+            db[0].execute(query_insert_teacher, (user_id, user_name))
+            db[1].commit()
+        elif user_type == "personnel":
+            query_insert_personnel = "INSERT INTO personnel (personnel_id, personnel_name) VALUES (%s, %s)"
+            db[0].execute(query_insert_personnel, (user_id, user_name))
+            db[1].commit()
 
         return {"message": "Equipment request submitted successfully"}
     except Exception as e:
@@ -180,3 +169,9 @@ async def request_equipment(
     finally:
         # Close the database cursor
         db[0].close()
+
+
+
+
+
+
