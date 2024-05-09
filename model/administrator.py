@@ -114,6 +114,10 @@ async def delete_administrator(
     db=Depends(get_db)
 ):
     try:
+        # Disable foreign key checks
+        db[0].execute("SET foreign_key_checks = 0")
+        db[1].commit()
+
         # Check if the user exists
         query_check_user = "SELECT admin_id FROM administrator WHERE admin_id = %s"
         db[0].execute(query_check_user, (adminID,))
@@ -127,20 +131,17 @@ async def delete_administrator(
         db[0].execute(query_delete_user, (adminID,))
         db[1].commit()
 
-        return {"message": "User deleted successfully"}
+        # Re-enable foreign key checks
+        db[0].execute("SET foreign_key_checks = 1")
+        db[1].commit()
+
+        return {"message": "Admin deleted successfully"}
     except Exception as e:
         # Handle other exceptions if necessary
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
     finally:
         # Close the database cursor
         db[0].close()
-
-# Password hashing function using bcrypt
-def hash_password(password: str):
-    # Generate a salt and hash the password
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed_password.decode('utf-8')  # Decode bytes to string for storage
 
 
 
