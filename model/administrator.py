@@ -200,8 +200,19 @@ async def update_equipment_by_admin(
     query_update_item = "UPDATE equipments SET item_name = %s, quantity = %s, status = %s, last_editor_id = %s WHERE item_id = %s"
     db[0].execute(query_update_item, (item_name, quantity, status, admin_id, item_id))
     db[1].commit()
-    
+
+    # Check if the quantity is greater than 0 and update the status accordingly
+    if quantity > 0:
+        query_update_status = """
+            UPDATE equipments
+            SET status = 'Available'
+            WHERE item_id = %s
+        """
+        db[0].execute(query_update_status, (item_id,))
+        db[1].commit()  # Commit the transaction after updating the status
+
     return {"message": "Equipment updated successfully by administrator"}
+
 
 
 # Endpoint to delete an existing equipment item by administrator

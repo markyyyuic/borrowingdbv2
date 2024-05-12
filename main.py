@@ -16,7 +16,7 @@ app = FastAPI()
 
 origins = [
     "http://localhost:",
-    "http://localhost:5173",  # Assuming your Vue.js server runs on port 8080
+    "http://localhost:5173",  
 ]
 
 # Include CRUD routes from modules

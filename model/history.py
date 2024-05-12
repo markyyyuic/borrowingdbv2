@@ -30,6 +30,25 @@ async def approve_request_by_id(
         db[0].execute(query_update_quantity, (approved_request_data[5], approved_request_data[4]))
         db[1].commit()  # Commit the transaction after updating the quantity
 
+        # Check if the quantity is zero and update the status accordingly
+        query_check_quantity = """
+            SELECT quantity
+            FROM equipments
+            WHERE item_id = %s
+        """
+        db[0].execute(query_check_quantity, (approved_request_data[4],))
+        remaining_quantity = db[0].fetchone()[0]
+
+        if remaining_quantity == 0:
+            # Update the status to "Not Available" if quantity is zero
+            query_update_status = """
+                UPDATE equipments
+                SET status = 'Not Available'
+                WHERE item_id = %s
+            """
+            db[0].execute(query_update_status, (approved_request_data[4],))
+            db[1].commit()  # Commit the transaction after updating the status
+
         # Update status of the approved request to "approved" in the request table
         query_update_status = """
             UPDATE request

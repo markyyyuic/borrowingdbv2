@@ -1,30 +1,54 @@
-# model/db.py
-import mysql.connector
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.exc import SQLAlchemyError
 
-db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "entdb",
-    "port": 3306,
-}
+# Define the SQLAlchemy database URL
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://entborrowing:borrowing@localhost:3306/entdb"
 
+# Create a SQLAlchemy engine
+engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
+
+# Create a sessionmaker
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Define a function to get a database session
 def get_db():
-    db = mysql.connector.connect(**db_config)
-    cursor = db.cursor()
+    db = SessionLocal()
     try:
-        yield cursor, db
+        yield db
     finally:
-        cursor.close()
         db.close()
-        
-def fetch_admin_id_from_database() -> int:
+
+# Define your database models using SQLAlchemy's ORM
+# Example:
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String
+
+Base = declarative_base()
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    email = Column(String, unique=True, index=True)
+
+# Define your fetch_admin_id_from_database function
+def fetch_admin_id_from_database(db):
     """
     Fetches the admin ID from the database based on the context of the current session or request.
     Returns the admin ID if found, otherwise returns None.
     """
-    # Implement your logic here to fetch the admin ID based on the context of the current session or request
-    # This might involve accessing session data, token authentication, or other context-specific information
-    
-    # For now, return a placeholder value (e.g., 1)
-    return 1
+    try:
+        # Implement your logic here to fetch the admin ID based on the context of the current session or request
+        # This might involve executing a SQL query using SQLAlchemy
+        
+        # For now, return a placeholder value (e.g., 1)
+        # Replace this with your actual logic to fetch the admin ID
+        admin_id = 1
+        
+        return admin_id
+    except SQLAlchemyError as e:
+        # Handle any database errors gracefully
+        print(f"Error fetching admin ID: {e}")
+        return None
