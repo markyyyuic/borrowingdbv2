@@ -2,8 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 
-# Define the SQLAlchemy database URL
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://entborrowing:borrowing@localhost:3306/entdb"
+
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://sql6705923:<password>@sql6.freemysqlhosting.net:3306/sql6705923"
+
 
 # Create a SQLAlchemy engine
 engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
