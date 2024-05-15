@@ -1,17 +1,18 @@
-from sqlalchemy import create_engine
+import mysql.connector
+import bcrypt
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import create_engine
 
-# Define the SQLAlchemy database URL
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://sql6705923:tools12345!@sql6.freemysqlhosting.net:3306/sql6705923"
+# Define SQLAlchemy database URL
+SQLALCHEMY_DATABASE_URL = "mysql+mysqlconnector://root:@localhost/entdb"
 
-# Create a SQLAlchemy engine
-engine = create_engine(SQLALCHEMY_DATABASE_URL, echo=True)
+# Create database engine
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 
-# Create a sessionmaker
+# Create a Session class bound to the engine
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Define a function to get a database session
+# Function to get a database session
 def get_db():
     db = SessionLocal()
     try:
@@ -19,25 +20,29 @@ def get_db():
     finally:
         db.close()
 
-# Define your database models using SQLAlchemy's ORM
-# Example:
+# Database configuration
+db_config = {
+    "host": "localhost",
+    "user": "root",
+    "password": "",  # Update with your actual password
+    "database": "entdb",
+    "port": 3306,
+}
 
-# Define your fetch_admin_id_from_database function
-def fetch_admin_id_from_database(db):
-    """
-    Fetches the admin ID from the database based on the context of the current session or request.
-    Returns the admin ID if found, otherwise returns None.
-    """
-    try:
-        # Implement your logic here to fetch the admin ID based on the context of the current session or request
-        # This might involve executing a SQL query using SQLAlchemy
-        
-        # For now, return a placeholder value (e.g., 1)
-        # Replace this with your actual logic to fetch the admin ID
-        admin_id = 1
-        
-        return admin_id
-    except SQLAlchemyError as e:
-        # Handle any database errors gracefully
-        print(f"Error fetching admin ID: {e}")
+def fetch_admin_id_from_database(username: str) -> int:
+    query = "SELECT admin_id FROM administrator WHERE username = %s"
+    db = mysql.connector.connect(**db_config)
+    cursor = db.cursor()
+    cursor.execute(query, (username,))
+    admin_id = cursor.fetchone()
+    cursor.close()
+    db.close()
+    if admin_id:
+        return admin_id[0]
+    else:
         return None
+
+def hash_password(password: str) -> str:
+    # Hash the password using bcrypt
+    hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    return hashed_password.decode('utf-8')
