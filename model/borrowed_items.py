@@ -8,6 +8,7 @@ from .db import get_db, fetch_admin_id_from_database
 from .schemas import BorrowItemUpdate
 from .crud import update_borrowed_item
 from sqlalchemy import text
+from .db import SessionLocal, engine
 
 logger = logging.getLogger(__name__)
 borrowed_items = APIRouter(tags=["Borrowed Items"])

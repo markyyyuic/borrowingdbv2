@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from . import models, schemas
 from datetime import datetime
+import logging
 
 def create_borrowed_item(db: Session, borrow_item: schemas.BorrowItemCreate):
     db_borrowed_item = models.BorrowedItem(
@@ -23,22 +24,19 @@ def create_borrowed_item(db: Session, borrow_item: schemas.BorrowItemCreate):
 
 def update_borrowed_item(db: Session, borrow_id: int, borrow_item: schemas.BorrowItemUpdate):
     db_borrowed_item = db.query(models.BorrowedItem).filter(models.BorrowedItem.borrow_id == borrow_id).first()
-    if db_borrowed_item is None:
-        return None
-    
-    # Update the borrowed item with new data
-    for key, value in borrow_item.dict(exclude_unset=True).items():
-        setattr(db_borrowed_item, key, value)
-    
-    if borrow_item.return_date:
-        # Check the action to determine the remarks
-        if borrow_item.remarks == "Returned":
-            db_borrowed_item.remarks = "Returned"
-        elif borrow_item.remarks == "Partially Returned":
-            db_borrowed_item.remarks = "Partially Returned"
-        # Set return_date
-        db_borrowed_item.return_date = borrow_item.return_date
-    
-    db.commit()
-    db.refresh(db_borrowed_item)
+    if db_borrowed_item:
+        for key, value in borrow_item.dict().items():
+            if value is not None:
+                setattr(db_borrowed_item, key, value)
+        
+        if borrow_item.remarks == 'Returned':
+            db_equipment = db.query(models.Equipment).filter(models.Equipment.item_id == db_borrowed_item.item_id).first()
+            if db_equipment:
+                logging.info(f"Updating equipment {db_equipment.item_id} quantity from {db_equipment.quantity} to {db_equipment.quantity + db_borrowed_item.quantity_borrowed}")
+                db_equipment.quantity += db_borrowed_item.quantity_borrowed
+                db.commit()
+                db.refresh(db_equipment)
+        
+        db.commit()
+        db.refresh(db_borrowed_item)
     return db_borrowed_item
