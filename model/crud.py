@@ -18,6 +18,7 @@ def create_borrowed_item(db: Session, borrow_item: schemas.BorrowItemCreate):
     # db.query(models.Equipment).filter(models.Equipment.item_id == borrow_item.item_id).update({
     #     models.Equipment.quantity: models.Equipment.quantity - borrow_item.quantity_borrowed
     # })
+    #comment
     db.commit()
     db.refresh(db_borrowed_item)
     return db_borrowed_item
