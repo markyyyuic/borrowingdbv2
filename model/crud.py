@@ -30,8 +30,14 @@ def update_borrowed_item(db: Session, borrow_id: int, borrow_item: schemas.Borro
     for key, value in borrow_item.dict(exclude_unset=True).items():
         setattr(db_borrowed_item, key, value)
     
-    # Ensure remarks are set to "Returned"
-    db_borrowed_item.remarks = "Returned"
+    if borrow_item.return_date:
+        # Check the action to determine the remarks
+        if borrow_item.remarks == "Returned":
+            db_borrowed_item.remarks = "Returned"
+        elif borrow_item.remarks == "Partially Returned":
+            db_borrowed_item.remarks = "Partially Returned"
+        # Set return_date
+        db_borrowed_item.return_date = borrow_item.return_date
     
     db.commit()
     db.refresh(db_borrowed_item)

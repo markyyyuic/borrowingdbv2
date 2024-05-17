@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from datetime import date
+from pydantic import BaseModel, validator
+from datetime import date, datetime
 from typing import Optional
 
 class BorrowItemCreate(BaseModel):
@@ -14,6 +14,12 @@ class BorrowItemUpdate(BaseModel):
     status: Optional[str]
     admin_id: Optional[int] = None
     remarks: Optional[str]
+    
+    @validator('return_date', pre=True)
+    def parse_return_date(cls, value):
+        if isinstance(value, str):
+            return datetime.strptime(value, "%Y-%m-%d").date()
+        return value
 
 class BorrowItem(BaseModel):
     borrow_id: int
@@ -26,5 +32,7 @@ class BorrowItem(BaseModel):
 
     class Config:
         orm_mode = True
+
+
 
 

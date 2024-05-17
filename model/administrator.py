@@ -155,10 +155,19 @@ async def delete_equipment_by_admin(
     if not existing_item:
         raise HTTPException(status_code=404, detail="Equipment item not found")
 
-    # Add your deletion logic here
-    query_delete_item = text("DELETE FROM equipments WHERE item_id = :item_id")
-    db.execute(query_delete_item, {"item_id": item_id})
-    db.commit()
+    # Disable foreign key checks
+    query_disable_foreign_key_checks = text("SET foreign_key_checks = 0")
+    db.execute(query_disable_foreign_key_checks)
+
+    try:
+        # Perform the deletion operation
+        query_delete_item = text("DELETE FROM equipments WHERE item_id = :item_id")
+        db.execute(query_delete_item, {"item_id": item_id})
+        db.commit()
+    finally:
+        # Enable foreign key checks
+        query_enable_foreign_key_checks = text("SET foreign_key_checks = 1")
+        db.execute(query_enable_foreign_key_checks)
 
     return {"message": "Equipment deleted successfully by administrator"}
 

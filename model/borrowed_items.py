@@ -18,8 +18,8 @@ async def borrow_equipment(borrow_item: schemas.BorrowItemCreate, db: Session = 
 
 
 @borrowed_items.put("/borrowed_items/return/{borrow_id}", response_model=schemas.BorrowItem)
-async def return_equipment(borrow_id: int, borrow_item: BorrowItemUpdate, db: Session = Depends(get_db)):
-    db_borrowed_item = update_borrowed_item(db=db, borrow_id=borrow_id, borrow_item=borrow_item)
+async def return_equipment(borrow_id: int, borrow_item: schemas.BorrowItemUpdate, db: Session = Depends(get_db)):
+    db_borrowed_item = crud.update_borrowed_item(db=db, borrow_id=borrow_id, borrow_item=borrow_item)
     if not db_borrowed_item:
         raise HTTPException(status_code=404, detail="Borrowed item not found")
     return db_borrowed_item
@@ -30,7 +30,7 @@ async def return_equipment(borrow_id: int, borrow_item: BorrowItemUpdate, db: Se
 async def get_borrowed_list(db: Session = Depends(get_db)):
     try:
         query = text("""
-        SELECT borrow_id, borrowers_name, item_name, borrow_date, return_date, remarks
+        SELECT borrow_id, borrowers_name, item_name, quantity_borrowed, borrow_date, return_date, remarks
         FROM borrowed_items
         """)
         result = db.execute(query)

@@ -5,7 +5,11 @@ import logging
 from typing import List, Optional, Dict, Union
 import json
 from sqlalchemy.exc import SQLAlchemyError
-from .models import Equipment
+from .models import Equipment, Student, Teacher, Personnel, Request as RequestModel 
+from sqlalchemy.orm import Session
+from pydantic import BaseModel
+
+
 
 logger = logging.getLogger(__name__)
 equipments = APIRouter(tags=["For Equipments"])
@@ -133,87 +137,72 @@ async def delete_equipment(
     finally:
         cursor.close()
         conn.close()
-
+        
+        
 @equipments.post("/equipment/request", response_model=dict)
 async def request_equipment(
-    request_data: dict,  # Updated to accept a dictionary containing request data
-    db=Depends(get_db)
+    request_data: dict,  # Changed parameter to accept JSON data
+    db: Session = Depends(get_db)
 ):
-    cursor, conn = db
     try:
-        # Extract request data
         user_id = request_data.get("user_id")
         user_name = request_data.get("user_name")
         user_type = request_data.get("user_type")
         year_section = request_data.get("year_section")
         item_requests = request_data.get("item_requests")
 
-        if not all([user_id, user_name, user_type, item_requests]):
-            raise HTTPException(status_code=400, detail="Missing required fields in the request")
+        # Check if item_requests is empty
+        if not item_requests:
+            raise HTTPException(status_code=400, detail="Item requests cannot be empty")
 
-        requested_item_names = []  # List to store requested item names
-        requested_item_ids = []  # List to store requested item IDs
-        requested_item_quantities = []  # List to store requested item quantities
+        requested_item_names = []
+        requested_item_ids = []
+        requested_item_quantities = []
 
-        # Process item requests and aggregate item names, IDs, and quantities
+        # Iterate over item requests
         for item_request in item_requests:
             item_id = item_request.get("item_id")
             quantity = item_request.get("quantity")
-
             if item_id is None or quantity is None:
                 raise HTTPException(status_code=400, detail="Item ID or quantity is missing in one or more requests")
 
-            # Fetch the item_name based on the item_id
-            query_fetch_item_name = "SELECT item_name FROM equipments WHERE item_id = %s"
-            cursor.execute(query_fetch_item_name, (item_id,))
-            item_name = cursor.fetchone()
-
-            if not item_name:
+            # Check if the item with item_id exists in the database
+            item = db.query(Equipment).filter(Equipment.item_id == item_id).first()
+            if not item:
                 raise HTTPException(status_code=404, detail=f"Item with ID {item_id} not found")
 
-            requested_item_ids.append(item_id)  # Add item ID to the list
-            requested_item_names.append(item_name[0])  # Add item name to the list
-            requested_item_quantities.append(quantity)  # Add item quantity to the list
+            requested_item_ids.append(item_id)
+            requested_item_names.append(item.item_name)
+            requested_item_quantities.append(quantity)
 
-        # Serialize lists into comma-separated strings
         concatenated_item_ids = ', '.join(map(str, requested_item_ids))
         concatenated_item_names = ', '.join(requested_item_names)
         concatenated_item_quantities = ', '.join(map(str, requested_item_quantities))
 
-        # Insert user-specific data into the respective tables
-        if user_type == "student":
-            query_insert_student = "INSERT INTO student (student_id, student_name, year_section) VALUES (%s, %s, %s)"
-            cursor.execute(query_insert_student, (user_id, user_name, year_section))
-            conn.commit()
-        elif user_type == "teacher":
-            query_insert_teacher = "INSERT INTO teacher (teacher_id, teacher_name) VALUES (%s, %s)"
-            cursor.execute(query_insert_teacher, (user_id, user_name))
-            conn.commit()
-        elif user_type == "personnel":
-            query_insert_personnel = "INSERT INTO personnel (personnel_id, personnel_name) VALUES (%s, %s)"
-            cursor.execute(query_insert_personnel, (user_id, user_name))
-            conn.commit()
-
-        # Insert the aggregated item IDs, names, and quantities into the request table
         timestamp = datetime.datetime.now()
-        query_insert_request = """
-            INSERT INTO request 
-            (user_id, name, date, year_section, item_id, item_name, quantity, user_type) 
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        cursor.execute(query_insert_request, (
-            user_id, user_name, timestamp, year_section,
-            concatenated_item_ids, concatenated_item_names, concatenated_item_quantities,
-            user_type
-        ))
-        conn.commit()
+        new_request = RequestModel(
+            user_id=user_id, name=user_name, date=timestamp, year_section=year_section,
+            item_id=concatenated_item_ids, item_name=concatenated_item_names,
+            quantity=concatenated_item_quantities, user_type=user_type
+        )
+        db.add(new_request)
+        db.commit()
 
-        return {"message": "Equipment request(s) submitted successfully", "requested_item_names": concatenated_item_names, "Concat Names": concatenated_item_quantities, "Concat_ID": concatenated_item_ids}
+        if user_type == "student":
+            new_student = Student(student_id=user_id, student_name=user_name, year_section=year_section)
+            db.add(new_student)
+        elif user_type == "teacher":
+            new_teacher = Teacher(teacher_id=user_id, teacher_name=user_name)
+            db.add(new_teacher)
+        elif user_type == "personnel":
+            new_personnel = Personnel(personnel_id=user_id, personnel_name=user_name)
+            db.add(new_personnel)
+        
+        db.commit()
+
+        return {"message": "Equipment request(s) submitted successfully", "requested_item_names": concatenated_item_names}
     except HTTPException as http_exception:
-        raise http_exception  # Re-raise HTTPException to maintain its original status code and detail
+        raise http_exception
     except Exception as e:
         logger.exception("An error occurred while processing equipment request:")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
-    finally:
-        cursor.close()
-        conn.close

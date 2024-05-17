@@ -40,3 +40,32 @@ class Administrator(Base):
     admin_id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     # Add other fields as necessary
+
+
+class Student(Base):
+    __tablename__ = 'student'
+    student_id = Column(Integer, primary_key=True, index=True)
+    student_name = Column(String, index=True)
+    year_section = Column(String)
+
+class Teacher(Base):
+    __tablename__ = 'teacher'
+    teacher_id = Column(Integer, primary_key=True, index=True)
+    teacher_name = Column(String, index=True)
+
+class Personnel(Base):
+    __tablename__ = 'personnel'
+    personnel_id = Column(Integer, primary_key=True, index=True)
+    personnel_name = Column(String, index=True)
+
+class Request(Base):
+    __tablename__ = 'request'
+    request_id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True)
+    name = Column(String, index=True)
+    date = Column(Date)
+    year_section = Column(String)
+    item_id = Column(String)
+    item_name = Column(String)
+    quantity = Column(String)
+    user_type = Column(String)
