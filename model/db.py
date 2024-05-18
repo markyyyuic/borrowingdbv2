@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 
 # Define SQLAlchemy database URL
-SQLALCHEMY_DATABASE_URL = "mysql+mysqlconnector://root:@localhost/entdb"
+SQLALCHEMY_DATABASE_URL = "mysql+mysqlconnector://root:@localhost/entdatabase"
 
 # Create database engine
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
