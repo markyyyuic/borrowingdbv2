@@ -23,11 +23,17 @@ async def login_administrator(username: str = Form(...), password: str = Form(..
 
     raise HTTPException(status_code=401, detail="Incorrect username or password")
 
+
+
 @administrator.get("/administrator/account_list", response_model=list)
 async def admin_list(db=Depends(get_db)):
     query = text("SELECT admin_id, username, full_name FROM administrator")
     users = [{"admin_id": user[0], "username": user[1], "full_name": user[2]} for user in db.execute(query).fetchall()]
     return users
+
+
+
+
 
 @administrator.get("/administrator/get_admin_account", response_model=dict)
 async def find_admin(admin_id: int, db=Depends(get_db)):
@@ -37,13 +43,25 @@ async def find_admin(admin_id: int, db=Depends(get_db)):
         return {"admin_id": user[0], "username": user[1], "full_name": user[2]}
     raise HTTPException(status_code=404, detail="User not found")
 
+
+
+#Creating 
 @administrator.post("/administrator/create", response_model=dict)
 async def create_administrator(username: str = Form(...), password: str = Form(...), full_name: str = Form(...), db=Depends(get_db)):
+    
+    #make the password hashed
     hashed_password = hash_password(password)
+    #query to inset the account into administrator table
     query = text("INSERT INTO administrator (username, password, full_name) VALUES (:username, :password, :full_name)")
+    
+    #executes the query in database
     db.execute(query, {"username": username, "password": hashed_password, "full_name": full_name})
+    #then Commits 
     db.commit()
     return {"message": "Admin account created successfully"}
+
+
+
 
 @administrator.put("/administrator/edit/", response_model=dict)
 async def update_administrator(admin_id: int, username: str = Form(...), password: str = Form(...), full_name: str = Form(...), db=Depends(get_db)):
@@ -53,12 +71,18 @@ async def update_administrator(admin_id: int, username: str = Form(...), passwor
     db.commit()
     return {"message": "Admin account updated successfully"}
 
+
+
+
 @administrator.delete("/administrator/delete/", response_model=dict)
 async def delete_administrator(admin_id: int, db=Depends(get_db)):
     query = text("DELETE FROM administrator WHERE admin_id = :admin_id")
     db.execute(query, {"admin_id": admin_id})
     db.commit()
     return {"message": "Admin account deleted successfully"}
+
+
+
 
 @administrator.post("/admin/equipment/create", response_model=dict)
 async def create_equipment_by_admin(
@@ -81,6 +105,10 @@ async def create_equipment_by_admin(
     db.commit()
     
     return {"message": "Equipment added successfully by administrator"}
+
+
+
+
 
 # Endpoint to update an existing equipment item by administrator
 @administrator.put("/admin/equipment/edit/{item_id}", response_model=dict)
@@ -134,6 +162,8 @@ async def update_equipment_by_admin(
         db.commit()
 
     return {"message": "Equipment updated successfully by administrator"}
+
+
 
 
 

@@ -26,7 +26,7 @@ db_config = {
     "host": "localhost",
     "user": "root",
     "password": "",  # Update with your actual password
-    "database": "entdb",
+    "database": "entdatabase",
     "port": 3306,
 }
 
