@@ -8,7 +8,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from .models import Equipment, Student, Teacher, Personnel, Request as RequestModel 
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-
+from sqlalchemy import desc
+from fastapi.responses import JSONResponse
+import base64
+from model import crud
+from sqlalchemy.exc import IntegrityError
+from datetime import date
+from sqlalchemy import text
 
 
 logger = logging.getLogger(__name__)
@@ -41,9 +47,11 @@ async def add_equipments(
         cursor.close()
         conn.close()
 
+from fastapi.responses import JSONResponse
+
 @equipments.get("/equipments/equipment_list", response_model=list)
 async def get_equipmentlist(
-    db=Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     try:
         with db as session:
@@ -51,13 +59,21 @@ async def get_equipmentlist(
             equipments = session.query(Equipment).all()
             # Convert SQLAlchemy objects to dictionaries
             equipment_list = [
-                {"item_id": equipment.item_id, "item_name": equipment.item_name, "quantity": equipment.quantity, "status": equipment.status}
+                {
+                    "item_id": equipment.item_id,
+                    "item_name": equipment.item_name,
+                    "quantity": equipment.quantity,
+                    "status": equipment.status,
+                    # Convert image to base64 string for display
+                   "image": base64.b64encode(equipment.image).decode("utf-8") if equipment.image else None
+                }
                 for equipment in equipments
             ]
             return equipment_list
     except SQLAlchemyError as e:
         logger.exception("Error occurred while retrieving equipment list:")
         raise HTTPException(status_code=500, detail="Internal server error")
+
 
 
 
@@ -179,14 +195,40 @@ async def request_equipment(
         concatenated_item_names = ', '.join(requested_item_names)
         concatenated_item_quantities = ', '.join(map(str, requested_item_quantities))
 
-        timestamp = datetime.datetime.now()
+        timestamp = datetime.date.today()
+
+        # Generate unique tracking ID
+        tracking_id = crud.generate_unique_tracking_id(db)
+
         new_request = RequestModel(
-            user_id=user_id, name=user_name, date=timestamp, year_section=year_section,
-            item_id=concatenated_item_ids, item_name=concatenated_item_names,
-            quantity=concatenated_item_quantities, user_type=user_type
+            user_id=user_id,
+            name=user_name,
+            date=timestamp,
+            year_section=year_section,
+            item_id=concatenated_item_ids,
+            item_name=concatenated_item_names,
+            status="pending",  # Assuming a default status of 'pending'
+            user_type=user_type,
+            quantity=concatenated_item_quantities,
+            tracking_id=tracking_id
         )
         db.add(new_request)
         db.commit()
+
+        # Insert data into request_tracking table
+        db.execute(
+            text("""
+            INSERT INTO request_tracking (name, item_name, date, status, tracking_id)
+            VALUES (:name, :item_name, :date, :status, :tracking_id)
+            """),
+            {
+                "name": user_name,
+                "item_name": concatenated_item_names,
+                "date": timestamp,
+                "status": "pending",  # Assuming the status is always 'pending' for new requests
+                "tracking_id": tracking_id
+            }
+        )
 
         if user_type == "student":
             new_student = Student(student_id=user_id, student_name=user_name, year_section=year_section)
@@ -197,12 +239,15 @@ async def request_equipment(
         elif user_type == "personnel":
             new_personnel = Personnel(personnel_id=user_id, personnel_name=user_name)
             db.add(new_personnel)
-        
+
         db.commit()
 
-        return {"message": "Equipment request(s) submitted successfully", "requested_item_names": concatenated_item_names}
+        return {"message": "Equipment request(s) submitted successfully", "tracking_id": tracking_id}
     except HTTPException as http_exception:
         raise http_exception
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Error creating request, possibly due to duplicate tracking ID")
     except Exception as e:
         logger.exception("An error occurred while processing equipment request:")
         raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")

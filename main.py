@@ -9,7 +9,7 @@ from model.personnel import personnels
 from model.history import history
 from model.request import requests
 from model.borrowed_items import borrowed_items  # Import the borrowed_items router
-
+from model.request_tracker import tracker
 app = FastAPI()
 
 origins = [
@@ -33,6 +33,7 @@ app.include_router(teachers, prefix="/api")
 app.include_router(equipments, prefix="/api")
 app.include_router(history, prefix="/history")
 app.include_router(requests, prefix="/request")
+app.include_router(tracker, prefix="/track")
 app.include_router(borrowed_items, prefix="/api")  # Include the borrowed_items router
 
 if __name__ == "__main__":

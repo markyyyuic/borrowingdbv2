@@ -2,7 +2,8 @@ from sqlalchemy.orm import Session
 from . import models, schemas
 from datetime import datetime
 import logging
-
+import random
+from .models import Request as RequestModel
 def create_borrowed_item(db: Session, borrow_item: schemas.BorrowItemCreate):
     db_borrowed_item = models.BorrowedItem(
         item_id=borrow_item.item_id,
@@ -41,3 +42,11 @@ def update_borrowed_item(db: Session, borrow_id: int, borrow_item: schemas.Borro
         db.commit()
         db.refresh(db_borrowed_item)
     return db_borrowed_item
+
+
+def generate_unique_tracking_id(db: Session) -> int:
+    while True:
+        tracking_id = random.randint(1000, 9999)
+        exists = db.query(RequestModel).filter(RequestModel.tracking_id == tracking_id).first()
+        if not exists:
+            return tracking_id

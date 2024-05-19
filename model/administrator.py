@@ -3,7 +3,10 @@ from .db import get_db, hash_password, fetch_admin_id_from_database
 from typing import Dict
 from sqlalchemy import text  # Import text from sqlalchemy
 import bcrypt
-
+from sqlalchemy.orm import Session
+from fastapi import File, UploadFile
+import io
+from .models import Equipment, Administrator
 administrator = APIRouter(tags=["Administrator Panel"])
 
 # CRUD operations
@@ -89,19 +92,34 @@ async def create_equipment_by_admin(
     item_name: str = Form(...), 
     quantity: int = Form(...), 
     status: str = Form(...), 
-    admin_id: int = Depends(fetch_admin_id_from_database),  # Fetch admin_id directly
-    db=Depends(get_db)
+    admin_id: int = Depends(fetch_admin_id_from_database),
+    image: UploadFile = File(...),  # Add image parameter to accept file uploads
+    db: Session = Depends(get_db)
 ) -> Dict:
-    # Check if all required fields are provided
-    if not all((item_name, quantity, status)):
+    if not all((item_name, quantity, status, image)):
         raise HTTPException(status_code=400, detail="All fields are required")
+
+    # Read image data
+    image_data = await image.read()
+
+    # Check if the equipment item already exists
+    query = text("SELECT COUNT(*) FROM equipments WHERE item_name = :item_name")
+    result = db.execute(query, {"item_name": item_name}).scalar()
+    if result > 0:
+        raise HTTPException(status_code=400, detail="Equipment item already exists")
     
     # Insert the new equipment item into the database
-    query = text("""
-        INSERT INTO equipments (item_name, quantity, status, admin_id)
-        VALUES (:item_name, :quantity, :status, :admin_id)
+    insert_query = text("""
+        INSERT INTO equipments (item_name, quantity, status, admin_id, image)
+        VALUES (:item_name, :quantity, :status, :admin_id, :image_data)
     """)
-    db.execute(query, {"item_name": item_name, "quantity": quantity, "status": status, "admin_id": admin_id})
+    db.execute(insert_query, {
+        "item_name": item_name,
+        "quantity": quantity,
+        "status": status,
+        "admin_id": admin_id,
+        "image_data": image_data  # Pass image data to the query
+    })
     db.commit()
     
     return {"message": "Equipment added successfully by administrator"}
@@ -111,6 +129,10 @@ async def create_equipment_by_admin(
 
 
 # Endpoint to update an existing equipment item by administrator
+from fastapi import File, UploadFile
+from sqlalchemy.orm import Session
+from sqlalchemy.sql import text
+
 @administrator.put("/admin/equipment/edit/{item_id}", response_model=dict)
 async def update_equipment_by_admin(
     item_id: int,
@@ -118,50 +140,39 @@ async def update_equipment_by_admin(
     quantity: int = Form(...),
     status: str = Form(...),
     admin_id: int = Depends(fetch_admin_id_from_database),
-    db=Depends(get_db)
+    image: UploadFile = File(None),
+    db: Session = Depends(get_db)
 ):
     # Check if the equipment item exists
-    query_check_item = text("SELECT * FROM equipments WHERE item_id = :item_id")
-    existing_item = db.execute(query_check_item, {"item_id": item_id}).fetchone()
+    existing_item = db.query(Equipment).filter(Equipment.item_id == item_id).first()
     if not existing_item:
         raise HTTPException(status_code=404, detail="Equipment item not found")
 
     # Fetch the full name of the administrator
-    query_get_admin_name = text("SELECT full_name FROM administrator WHERE admin_id = :admin_id")
-    admin_name = db.execute(query_get_admin_name, {"admin_id": admin_id}).fetchone()[0]
-
-    # Fetch the current latest editor and update it as last editor
-    query_get_latest_editor = text("SELECT latest_editor FROM equipments WHERE item_id = :item_id")
-    current_latest_editor = db.execute(query_get_latest_editor, {"item_id": item_id}).fetchone()[0]
+    admin_name = db.query(Administrator.full_name).filter(Administrator.admin_id == admin_id).first()[0]
 
     # Update the existing equipment item in the database
-    query_update_item = text("""
-        UPDATE equipments 
-        SET item_name = :item_name, quantity = :quantity, status = :status, last_editor_id = :admin_id, latest_editor = :admin_name, last_editor = :current_latest_editor
-        WHERE item_id = :item_id
-    """)
-    db.execute(query_update_item, {
-        "item_name": item_name,
-        "quantity": quantity,
-        "status": status,
-        "admin_id": admin_id,
-        "admin_name": admin_name,
-        "current_latest_editor": current_latest_editor,
-        "item_id": item_id
-    })
+    existing_item.item_name = item_name
+    existing_item.quantity = quantity
+    existing_item.status = status
+    existing_item.last_editor_id = admin_id
+    existing_item.latest_editor = admin_name
+
+    # Update the image if provided
+    if image:
+        # Save the image to the appropriate location or store it in the database
+        # For simplicity, assume storing in the database as LargeBinary
+        existing_item.image = image.file.read()
+
+    # Commit the changes to the database
     db.commit()
 
     # Check if the quantity is greater than 0 and update the status accordingly
     if quantity > 0:
-        query_update_status = text("""
-            UPDATE equipments
-            SET status = 'Available'
-            WHERE item_id = :item_id
-        """)
-        db.execute(query_update_status, {"item_id": item_id})
-        db.commit()
+        existing_item.status = 'Available'
 
     return {"message": "Equipment updated successfully by administrator"}
+
 
 
 

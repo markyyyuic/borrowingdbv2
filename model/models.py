@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey, CheckConstraint
+from sqlalchemy import Column, Integer, String, Date, Text, ForeignKey, CheckConstraint, LargeBinary
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -14,6 +14,7 @@ class Equipment(Base):
     last_editor_id = Column(Integer)
     latest_editor = Column(String)
     last_editor = Column(String)
+    image = Column(LargeBinary)
     
 class BorrowedItem(Base):
     __tablename__ = 'borrowed_items'
@@ -36,7 +37,7 @@ class BorrowedItem(Base):
 
 class Administrator(Base):
     __tablename__ = 'administrator'
-
+    full_name =  Column(String)
     admin_id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
     # Add other fields as necessary
@@ -69,3 +70,7 @@ class Request(Base):
     item_name = Column(String)
     quantity = Column(String)
     user_type = Column(String)
+    status = Column(String, default="pending") 
+    tracking_id = Column(Integer, unique=True, nullable=False)
+    
+    

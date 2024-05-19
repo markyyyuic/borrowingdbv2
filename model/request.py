@@ -5,6 +5,7 @@ import logging
 from sqlalchemy import text
 
 
+
 requests = APIRouter(tags=["Requests Tables"])
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,14 @@ async def approve_request_by_id(
         db.execute(query_update_status, {"request_id": request_id})
         db.commit()  # Commit the transaction after updating the status
 
+        # Update status in request_tracking table
+        query_update_tracking_status = text("""
+            UPDATE request_tracking
+            SET status = 'approved'
+        """)
+        db.execute(query_update_tracking_status, {"request_id": request_id})
+        db.commit()  # Commit the transaction after updating the tracking status
+
         # Insert the approved request data into the reports table
         query_insert_report = text("""
             INSERT INTO reports (request_id, status, name, year_section, item_name)
@@ -117,8 +126,7 @@ async def approve_request_by_id(
         # Close the session
         db.close()
 
-
-@requests.post("/requests/decline_requests/{request_id}", response_model=dict)
+@requests.post("/request/decline_requests/{request_id}", response_model=dict)
 async def decline_request_by_id(
     request_id: int,
     db: Session = Depends(get_db)
@@ -132,6 +140,15 @@ async def decline_request_by_id(
         """)
         db.execute(query_decline_request, {"request_id": request_id})
         db.commit()  # Commit the transaction after updating the status
+
+        # Update status in request_tracking table
+        query_update_tracking_status = text("""
+            UPDATE request_tracking
+            SET status = 'declined'
+            WHERE request_id = :request_id
+        """)
+        db.execute(query_update_tracking_status, {"request_id": request_id})
+        db.commit()  # Commit the transaction after updating the tracking status
 
         # Retrieve declined request data from the request table
         query_select_request = text("""
@@ -174,10 +191,11 @@ async def decline_request_by_id(
     finally:
         # Close the session
         db.close()
+
         
 @requests.get("/requests", response_model=list)
 async def get_requests(db: Session = Depends(get_db)):
-    query = text("SELECT request_id, name, date, item_name, status FROM request")
+    query = text("SELECT request_id, name, date, item_name, status FROM request ORDER BY date DESC")
     result = db.execute(query)
     requests = [
         {"request_id": row[0], "name": row[1], "date": row[2], "item_name": row[3], "status": row[4]}
